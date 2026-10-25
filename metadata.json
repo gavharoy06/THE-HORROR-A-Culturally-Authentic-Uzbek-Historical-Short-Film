@@ -1,0 +1,6 @@
+{
+  "name": "Dahshat - 19th-Century Uzbek Historical Film",
+  "description": "An authentic, realistic cinematic film adaptation set in 19th-century Uzbekistan during Ramadan, following Unsin and Olimbek Dodkho through the fateful autumn night.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

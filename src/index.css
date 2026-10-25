@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+  h1, h2, h3, h4, .font-serif {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+  }
+}
+
+/* Cinematic film grain & textures */
+.film-grain {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 0);
+  background-size: 3px 3px;
+}
+
+@keyframes kenburns-1 {
+  0% { transform: scale(1) translate(0, 0); }
+  50% { transform: scale(1.04) translate(-0.8%, -0.5%); }
+  100% { transform: scale(1.08) translate(-1.2%, -1%); }
+}
+
+@keyframes kenburns-2 {
+  0% { transform: scale(1.06) translate(1%, 0.5%); }
+  50% { transform: scale(1.02) translate(0%, 0%); }
+  100% { transform: scale(1.08) translate(-0.8%, 0.8%); }
+}
+
+@keyframes kenburns-3 {
+  0% { transform: scale(1.08) translate(-1%, 0.5%); }
+  35% { transform: scale(1.05) translate(0.5%, -0.5%); }
+  70% { transform: scale(1.12) translate(-1.5%, 1%); }
+  100% { transform: scale(1.16) translate(-0.5%, -0.5%); }
+}
+
+.animate-kenburns-1 {
+  animation: kenburns-1 30s ease-in-out infinite alternate;
+}
+
+.animate-kenburns-2 {
+  animation: kenburns-2 30s ease-in-out infinite alternate;
+}
+
+.animate-kenburns-3 {
+  animation: kenburns-3 30s ease-in-out infinite alternate;
+}
+
+/* Subtle flickering firelight */
+@keyframes flicker-glow {
+  0%, 100% { opacity: 0.22; }
+  25% { opacity: 0.16; }
+  50% { opacity: 0.26; }
+  75% { opacity: 0.19; }
+}
+
+.animate-fire-glow {
+  animation: flicker-glow 2.5s ease-in-out infinite;
+}
