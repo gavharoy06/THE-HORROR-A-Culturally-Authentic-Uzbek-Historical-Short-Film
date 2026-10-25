@@ -151,6 +151,12 @@ export default function App() {
                         src={act.imagePath}
                         alt={act.title}
                         referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          if (target.src !== act.fallbackImagePath) {
+                            target.src = act.fallbackImagePath;
+                          }
+                        }}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                       <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded text-[11px] font-serif text-amber-300">

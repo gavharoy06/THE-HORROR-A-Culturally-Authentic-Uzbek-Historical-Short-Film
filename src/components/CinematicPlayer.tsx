@@ -16,7 +16,10 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
-  X
+  X,
+  Video,
+  FileQuestion,
+  HelpCircle
 } from 'lucide-react';
 import { FILM_ACTS, FilmAct, SubtitleCue } from '../data/filmData';
 import { soundEngine } from '../utils/soundEngine';
@@ -47,34 +50,104 @@ export const CinematicPlayer: React.FC<CinematicPlayerProps> = ({
   const [isAudioPromptVisible, setIsAudioPromptVisible] = useState<boolean>(true);
   const [isMediaLoading, setIsMediaLoading] = useState<boolean>(true);
   const [mediaError, setMediaError] = useState<string | null>(null);
+  const [imgSrc, setImgSrc] = useState<string>('');
+
+  // HTML5 Video Playback states
+  const [useVideoMode, setUseVideoMode] = useState<boolean>(false);
+  const [videoAvailable, setVideoAvailable] = useState<boolean | null>(null);
+  const [showVideoUploadGuide, setShowVideoUploadGuide] = useState<boolean>(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const activeAct: FilmAct = FILM_ACTS[currentActIndex];
 
-  // Sound Engine synchronization with act changes
+  // Set initial image source with fallback
   useEffect(() => {
-    soundEngine.setActScene(currentActIndex);
-    if (currentActIndex === 2 && isPlaying) {
-      // Trigger shock audio stinger slightly into the climax
-      const timer = window.setTimeout(() => {
-        soundEngine.playShockStinger();
-      }, 7000);
-      return () => clearTimeout(timer);
-    }
-  }, [currentActIndex, isPlaying]);
-
-  // Reset loading state when act changes
-  useEffect(() => {
+    setImgSrc(activeAct.imagePath || activeAct.fallbackImagePath);
     setIsMediaLoading(true);
     setMediaError(null);
-  }, [currentActIndex]);
+  }, [activeAct]);
 
-  // Playback timer ticker
+  // Probe HTML5 video availability for current act
+  useEffect(() => {
+    let isCancelled = false;
+    const testVideo = document.createElement('video');
+    testVideo.preload = 'metadata';
+    testVideo.src = activeAct.videoMp4;
+
+    testVideo.onloadedmetadata = () => {
+      if (!isCancelled) {
+        setVideoAvailable(true);
+        setUseVideoMode(true);
+      }
+    };
+
+    testVideo.onerror = () => {
+      if (!isCancelled) {
+        setVideoAvailable(false);
+        setUseVideoMode(false);
+      }
+    };
+
+    return () => {
+      isCancelled = true;
+      testVideo.src = '';
+    };
+  }, [activeAct.videoMp4]);
+
+  // Audio track management: Avoid dual audio tracks if video is playing with sound
+  useEffect(() => {
+    if (useVideoMode && videoAvailable && isPlaying) {
+      // Mute synthetic sound engine when real video is playing
+      soundEngine.setVolume(0);
+    } else {
+      // Restore atmospheric ambient sound engine
+      soundEngine.setActScene(currentActIndex);
+      if (!isAudioMuted) {
+        soundEngine.setVolume(0.4);
+      }
+    }
+  }, [useVideoMode, videoAvailable, isPlaying, currentActIndex, isAudioMuted]);
+
+  // Sound Engine synchronization with act changes in reel mode
+  useEffect(() => {
+    if (!useVideoMode) {
+      soundEngine.setActScene(currentActIndex);
+      if (currentActIndex === 2 && isPlaying) {
+        const timer = window.setTimeout(() => {
+          soundEngine.playShockStinger();
+        }, 7000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [currentActIndex, isPlaying, useVideoMode]);
+
+  // Sync Video Element play/pause state
+  useEffect(() => {
+    if (videoRef.current && useVideoMode && videoAvailable) {
+      if (isPlaying) {
+        videoRef.current.play().catch(() => {
+          // Autoplay policy prevented playback
+        });
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  }, [isPlaying, useVideoMode, videoAvailable]);
+
+  // Sync Video Element volume and mute
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.muted = isAudioMuted;
+    }
+  }, [isAudioMuted]);
+
+  // Playback timer ticker (for 35mm Reel mode or when video element is not active)
   useEffect(() => {
     if (!isPlaying) return;
+    if (useVideoMode && videoAvailable) return; // handled by onTimeUpdate in video
 
-    const intervalTime = 100; // tick every 100ms
+    const intervalTime = 100;
     const step = (intervalTime / (activeAct.durationSeconds * 1000)) * 100;
 
     const interval = setInterval(() => {
@@ -87,7 +160,7 @@ export const CinematicPlayer: React.FC<CinematicPlayerProps> = ({
     }, intervalTime);
 
     return () => clearInterval(interval);
-  }, [isPlaying, activeAct.durationSeconds]);
+  }, [isPlaying, activeAct.durationSeconds, useVideoMode, videoAvailable]);
 
   // Handle act transition outside of the state updater function
   useEffect(() => {
@@ -112,15 +185,25 @@ export const CinematicPlayer: React.FC<CinematicPlayerProps> = ({
   // Reset progress when act changes manually
   useEffect(() => {
     setProgress(0);
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+    }
   }, [currentActIndex]);
 
   const togglePlay = useCallback(() => {
-    if (!soundEngine.getIsRunning()) {
+    if (!soundEngine.getIsRunning() && !useVideoMode) {
       soundEngine.start();
       setIsAudioPromptVisible(false);
     }
-    setIsPlaying((prev) => !prev);
-  }, []);
+    setIsPlaying((prev) => {
+      const next = !prev;
+      if (videoRef.current && useVideoMode && videoAvailable) {
+        if (next) videoRef.current.play().catch(() => {});
+        else videoRef.current.pause();
+      }
+      return next;
+    });
+  }, [useVideoMode, videoAvailable]);
 
   const handleNextAct = () => {
     if (currentActIndex < FILM_ACTS.length - 1) {
@@ -143,11 +226,34 @@ export const CinematicPlayer: React.FC<CinematicPlayerProps> = ({
     const clickX = e.clientX - rect.left;
     const newProgress = Math.max(0, Math.min(100, (clickX / rect.width) * 100));
     setProgress(newProgress);
+
+    if (videoRef.current && useVideoMode && videoAvailable && videoRef.current.duration) {
+      videoRef.current.currentTime = (newProgress / 100) * videoRef.current.duration;
+    }
+  };
+
+  const handleVideoTimeUpdate = () => {
+    if (videoRef.current && videoRef.current.duration) {
+      const current = videoRef.current.currentTime;
+      const dur = videoRef.current.duration;
+      setProgress((current / dur) * 100);
+    }
+  };
+
+  const handleVideoEnded = () => {
+    if (currentActIndex < FILM_ACTS.length - 1) {
+      onSelectAct(currentActIndex + 1);
+      setProgress(0);
+    } else {
+      setIsPlaying(false);
+      setProgress(100);
+    }
   };
 
   const retryMediaLoad = () => {
     setIsMediaLoading(true);
     setMediaError(null);
+    setImgSrc(activeAct.fallbackImagePath);
   };
 
   // Keyboard shortcuts
@@ -200,7 +306,7 @@ export const CinematicPlayer: React.FC<CinematicPlayerProps> = ({
       )}
 
       {/* Audio initialization reminder banner if not yet started (only in normal mode) */}
-      {!isCinemaMode && isAudioPromptVisible && (
+      {!isCinemaMode && isAudioPromptVisible && !useVideoMode && (
         <div className="mb-4 bg-amber-950/70 border border-amber-800/80 rounded-lg p-3 flex items-center justify-between gap-4 text-xs text-amber-200">
           <div className="flex items-center gap-2">
             <Volume2 className="w-4 h-4 text-amber-400 shrink-0" />
@@ -222,7 +328,7 @@ export const CinematicPlayer: React.FC<CinematicPlayerProps> = ({
 
       {/* Main Cinema Screen Frame */}
       <div
-        className={`relative overflow-hidden rounded-xl bg-stone-950 shadow-2xl border border-stone-800/80 group transition-all duration-300 ${
+        className={`relative overflow-hidden rounded-xl bg-stone-950 shadow-2xl border border-stone-800/80 group transition-all duration-300 flex items-center justify-center ${
           isCinemaMode
             ? aspectRatio === 'scope'
               ? 'cinema-viewport-scope'
@@ -241,7 +347,7 @@ export const CinematicPlayer: React.FC<CinematicPlayerProps> = ({
           <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-stone-950/90 text-amber-200">
             <Loader2 className="w-8 h-8 animate-spin text-amber-400 mb-2" />
             <span className="text-xs uppercase tracking-widest font-serif">
-              Loading 19th-Century Reel...
+              {useVideoMode ? 'Buffering Video Stream...' : 'Loading 19th-Century Reel...'}
             </span>
           </div>
         )}
@@ -264,28 +370,57 @@ export const CinematicPlayer: React.FC<CinematicPlayerProps> = ({
           </div>
         )}
 
-        {/* Cinematic Film Visual Layer with Ken Burns Motion */}
+        {/* MEDIA LAYER: HTML5 VIDEO OR 35MM RESTORED REEL */}
         <div className="absolute inset-0 z-0 overflow-hidden bg-black flex items-center justify-center">
-          <img
-            key={activeAct.imagePath}
-            src={activeAct.imagePath}
-            alt={activeAct.title}
-            referrerPolicy="no-referrer"
-            onLoad={() => {
-              setIsMediaLoading(false);
-              setMediaError(null);
-            }}
-            onError={() => {
-              setIsMediaLoading(false);
-              setMediaError('Unable to load archival scene frame. Click Retry.');
-            }}
-            className={`w-full h-full object-cover origin-center transition-opacity duration-700 ${
-              isPlaying ? kenBurnsClass : ''
-            } ${isMediaLoading ? 'opacity-0' : 'opacity-100'}`}
-            style={{
-              animationPlayState: isPlaying ? 'running' : 'paused',
-            }}
-          />
+          {useVideoMode && videoAvailable ? (
+            /* HTML5 Video Element */
+            <video
+              ref={videoRef}
+              key={activeAct.videoMp4}
+              playsInline
+              className="w-full h-full object-contain origin-center"
+              onTimeUpdate={handleVideoTimeUpdate}
+              onEnded={handleVideoEnded}
+              onWaiting={() => setIsMediaLoading(true)}
+              onCanPlay={() => setIsMediaLoading(false)}
+              onError={() => {
+                setVideoAvailable(false);
+                setUseVideoMode(false);
+                setIsMediaLoading(false);
+              }}
+            >
+              <source src={activeAct.videoMp4} type="video/mp4" />
+              <source src={activeAct.videoWebm} type="video/webm" />
+              Your browser does not support the video tag.
+            </video>
+          ) : (
+            /* 35mm Master Cinematography Reel (Image with Ken Burns Motion) */
+            <img
+              key={imgSrc}
+              src={imgSrc}
+              alt={activeAct.title}
+              referrerPolicy="no-referrer"
+              onLoad={() => {
+                setIsMediaLoading(false);
+                setMediaError(null);
+              }}
+              onError={() => {
+                if (imgSrc !== activeAct.fallbackImagePath) {
+                  // Try public fallback image
+                  setImgSrc(activeAct.fallbackImagePath);
+                } else {
+                  setIsMediaLoading(false);
+                  setMediaError('Unable to load scene image. Click Retry.');
+                }
+              }}
+              className={`w-full h-full object-cover origin-center transition-opacity duration-700 ${
+                isPlaying ? kenBurnsClass : ''
+              } ${isMediaLoading ? 'opacity-0' : 'opacity-100'}`}
+              style={{
+                animationPlayState: isPlaying ? 'running' : 'paused',
+              }}
+            />
+          )}
         </div>
 
         {/* 35mm Film Grain Overlay */}
@@ -320,10 +455,23 @@ export const CinematicPlayer: React.FC<CinematicPlayerProps> = ({
             <span className="text-stone-400 hidden sm:inline">{activeAct.timeOfDay}</span>
           </div>
 
-          <div className="hidden sm:flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1 rounded-md border border-stone-800/80">
-            <span className="text-stone-400">19th-C. Uzbekistan</span>
-            <span className="text-stone-600">|</span>
-            <span className="text-amber-400/90 font-serif">Ramadan Night</span>
+          <div className="hidden sm:flex items-center gap-3">
+            {/* Format Stream Indicator */}
+            <button
+              onClick={() => setShowVideoUploadGuide((prev) => !prev)}
+              className="flex items-center gap-1.5 bg-black/60 hover:bg-stone-900 backdrop-blur-md px-3 py-1 rounded-md border border-stone-800 text-stone-300 hover:text-amber-300 transition-colors cursor-pointer"
+              title="Media stream status and video upload specifications"
+            >
+              <Video className="w-3.5 h-3.5 text-amber-400" />
+              <span>{useVideoMode && videoAvailable ? 'HTML5 Video' : '35mm Restored Reel'}</span>
+              <HelpCircle className="w-3 h-3 text-stone-400 ml-0.5" />
+            </button>
+
+            <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1 rounded-md border border-stone-800/80">
+              <span className="text-stone-400">19th-C. Uzbekistan</span>
+              <span className="text-stone-600">|</span>
+              <span className="text-amber-400/90 font-serif">Ramadan Night</span>
+            </div>
           </div>
         </div>
 
@@ -357,6 +505,68 @@ export const CinematicPlayer: React.FC<CinematicPlayerProps> = ({
                 {subtitleLang === 'uz' && currentSubtitle.uz}
                 {subtitleLang === 'ru' && currentSubtitle.ru}
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Video Upload Guidance Modal Overlay (when clicked) */}
+        {showVideoUploadGuide && (
+          <div className="absolute inset-4 sm:inset-12 z-40 bg-stone-950/95 backdrop-blur-xl border border-stone-700 rounded-xl p-6 overflow-y-auto flex flex-col justify-between shadow-2xl">
+            <div>
+              <div className="flex items-center justify-between border-b border-stone-800 pb-3 mb-4">
+                <div className="flex items-center gap-2 text-amber-300 font-serif">
+                  <Video className="w-5 h-5 text-amber-400" />
+                  <h3 className="text-base font-bold">HTML5 Video Stream Integration</h3>
+                </div>
+                <button
+                  onClick={() => setShowVideoUploadGuide(false)}
+                  className="p-1 hover:text-stone-100 text-stone-400 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-4 text-xs text-stone-300">
+                <p>
+                  The cinematic player supports native HTML5 MP4 and WebM video playback. To stream real cinematic videos for the three acts, upload your files into the <code className="text-amber-300 bg-stone-900 px-1 py-0.5 rounded">public/videos/</code> directory:
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3 bg-stone-900/80 border border-stone-800 rounded-lg">
+                    <span className="text-amber-400 font-semibold block mb-1">Act 1: The Wager</span>
+                    <code className="text-[11px] text-stone-300 block mb-1">/videos/scene_1.mp4</code>
+                    <span className="text-[10px] text-stone-400">or scene_1.webm</span>
+                  </div>
+                  <div className="p-3 bg-stone-900/80 border border-stone-800 rounded-lg">
+                    <span className="text-amber-400 font-semibold block mb-1">Act 2: The Fire</span>
+                    <code className="text-[11px] text-stone-300 block mb-1">/videos/scene_2.mp4</code>
+                    <span className="text-[10px] text-stone-400">or scene_2.webm</span>
+                  </div>
+                  <div className="p-3 bg-stone-900/80 border border-stone-800 rounded-lg">
+                    <span className="text-amber-400 font-semibold block mb-1">Act 3: The Climax</span>
+                    <code className="text-[11px] text-stone-300 block mb-1">/videos/scene_3.mp4</code>
+                    <span className="text-[10px] text-stone-400">or scene_3.webm</span>
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-stone-900/50 border border-stone-800/80 rounded-lg">
+                  <span className="text-amber-400 font-semibold block mb-1">Current Active Stream Status:</span>
+                  <p className="text-stone-400">
+                    {videoAvailable
+                      ? 'Local video file detected and streaming with hardware acceleration.'
+                      : 'Video file not yet uploaded to public/videos/. The player is currently rendering the high-definition 35mm restored cinematography stream with synchronized Web Audio soundscapes.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-stone-800 flex justify-end">
+              <button
+                onClick={() => setShowVideoUploadGuide(false)}
+                className="px-4 py-1.5 bg-amber-400 hover:bg-amber-300 text-stone-950 font-semibold text-xs rounded-md cursor-pointer transition-colors"
+              >
+                Close Guide
+              </button>
             </div>
           </div>
         )}
@@ -412,7 +622,10 @@ export const CinematicPlayer: React.FC<CinematicPlayerProps> = ({
               </button>
 
               <button
-                onClick={() => setProgress(0)}
+                onClick={() => {
+                  setProgress(0);
+                  if (videoRef.current) videoRef.current.currentTime = 0;
+                }}
                 aria-label="Replay Scene"
                 className="p-1.5 hover:text-amber-300 transition-colors text-stone-400 cursor-pointer"
                 title="Replay Current Scene"
@@ -445,6 +658,32 @@ export const CinematicPlayer: React.FC<CinematicPlayerProps> = ({
 
             {/* Display & Subtitle Preferences */}
             <div className="flex items-center gap-2 sm:gap-3">
+              {/* Media Stream Mode Switch (Video vs Reel) */}
+              <button
+                onClick={() => {
+                  if (videoAvailable) {
+                    setUseVideoMode((prev) => !prev);
+                  } else {
+                    setShowVideoUploadGuide(true);
+                  }
+                }}
+                className={`p-1.5 rounded transition-colors cursor-pointer flex items-center gap-1 text-[11px] ${
+                  useVideoMode && videoAvailable
+                    ? 'bg-amber-400 text-stone-950 font-bold'
+                    : 'text-stone-400 hover:text-stone-200'
+                }`}
+                title={
+                  videoAvailable
+                    ? useVideoMode
+                      ? 'Switch to 35mm Master Reel'
+                      : 'Switch to HTML5 Video Stream'
+                    : 'Upload video files to enable HTML5 stream'
+                }
+              >
+                <Video className="w-3.5 h-3.5" />
+                <span className="hidden xl:inline">{useVideoMode ? 'Video' : 'Reel'}</span>
+              </button>
+
               {/* Language Switch */}
               <div className="flex items-center gap-1 bg-stone-900/90 border border-stone-800 p-1 rounded-md">
                 <Languages className="w-3.5 h-3.5 text-stone-400 ml-1" />
@@ -488,7 +727,7 @@ export const CinematicPlayer: React.FC<CinematicPlayerProps> = ({
                 onClick={onToggleAudio}
                 aria-label={isAudioMuted ? 'Turn Sound On' : 'Turn Sound Off'}
                 className="p-1.5 hover:text-amber-300 text-stone-400 transition-colors cursor-pointer"
-                title="Toggle Web Audio Soundscape"
+                title="Toggle Sound"
               >
                 {isAudioMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-amber-400" />}
               </button>
@@ -554,6 +793,12 @@ export const CinematicPlayer: React.FC<CinematicPlayerProps> = ({
               <div>
                 <span className="text-stone-500">Cinematography:</span>{' '}
                 <span className="text-stone-300 font-medium">{activeAct.cinematography.shotType}</span>
+              </div>
+              <div>
+                <span className="text-stone-500">Media Stream:</span>{' '}
+                <span className="text-amber-300 font-medium">
+                  {useVideoMode && videoAvailable ? 'HTML5 Native Video' : '35mm Restored Reel'}
+                </span>
               </div>
             </div>
           </div>

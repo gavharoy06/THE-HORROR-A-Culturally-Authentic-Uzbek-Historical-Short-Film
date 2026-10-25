@@ -1,8 +1,6 @@
-/**
- * Film Data & Historical Screenplay for "Dahshat" (The Terror)
- * Adapted from Abdulla Qahhor's classical Uzbek masterpiece
- * Setting: 19th-Century Uzbekistan during Ramadan
- */
+import scene1Img from '../assets/images/scene_1_courtyard_oath_1792930833392.jpg';
+import scene2Img from '../assets/images/scene_2_cemetery_fire_1792930839559.jpg';
+import scene3Img from '../assets/images/scene_3_climax_terror_1792930835472.jpg';
 
 export interface SubtitleCue {
   id: number;
@@ -23,6 +21,9 @@ export interface FilmAct {
   ruTitle: string;
   durationSeconds: number;
   imagePath: string;
+  fallbackImagePath: string;
+  videoMp4: string;
+  videoWebm: string;
   setting: string;
   timeOfDay: string;
   synopsis: string;
@@ -51,7 +52,10 @@ export const FILM_ACTS: FilmAct[] = [
     uzTitle: "Tarovihdan So'ng / Hovlidagi Shart",
     ruTitle: "Уговор в ночь Рамадана",
     durationSeconds: 22,
-    imagePath: "/src/assets/images/scene_1_courtyard_oath_1792930833392.jpg",
+    imagePath: scene1Img,
+    fallbackImagePath: "/images/scene_1.jpg",
+    videoMp4: "/videos/scene_1.mp4",
+    videoWebm: "/videos/scene_1.webm",
     setting: "Traditional Uzbek Courtyard (Ichkari Hovli) & Carved Walnut Gate",
     timeOfDay: "Midnight, Late Ramadan after Tarawih prayers",
     synopsis: "Inside an authentic 19th-century Uzbek courtyard, elderly Olimbek Dodkho, clad in his aristocratic turban and embroidered chapan, confronts the young maiden Unsin. He lays down a ruthless wager: venture into the stormy night to the ancient Muslim cemetery, boil water beside the old mausoleum, and bring back tea in exchange for her freedom.",
@@ -144,7 +148,10 @@ export const FILM_ACTS: FilmAct[] = [
     uzTitle: "Maqbara Yonidagi Olov",
     ruTitle: "Огонь у древнего мавзолея",
     durationSeconds: 24,
-    imagePath: "/src/assets/images/scene_2_cemetery_fire_1792930839559.jpg",
+    imagePath: scene2Img,
+    fallbackImagePath: "/images/scene_2.jpg",
+    videoMp4: "/videos/scene_2.mp4",
+    videoWebm: "/videos/scene_2.webm",
     setting: "Ancient Muslim Cemetery (Mozorot) with Brick Domed Mausoleum",
     timeOfDay: "2:00 AM, Violent Autumn Storm beneath cold full moon",
     synopsis: "Arriving at the ancient Muslim cemetery amidst tossing plane trees (chinor) and earthen mounds, Unsin places her brass kettle and teapot beside the terracotta brick mausoleum. Removing her paranji to work, she braves the biting wind to collect dry steppe reeds and thorns. As the fire leaps to life, casting dramatic shadows against the Islamic arches, she waits in prayer and terror while the water reaches a boil.",
@@ -237,7 +244,10 @@ export const FILM_ACTS: FilmAct[] = [
     uzTitle: "Lahad Cho'kishi va Dahshat",
     ruTitle: "Провал в могилу и леденящий ужас",
     durationSeconds: 26,
-    imagePath: "/src/assets/images/scene_3_climax_terror_1792930835472.jpg",
+    imagePath: scene3Img,
+    fallbackImagePath: "/images/scene_3.jpg",
+    videoMp4: "/videos/scene_3.mp4",
+    videoWebm: "/videos/scene_3.webm",
     setting: "Cemetery Path between Sunken Tombs and Ancient Clay Ruins",
     timeOfDay: "3:30 AM, The Darkest Hour before dawn",
     synopsis: "Carrying the hot teapot in her right hand and the brass kettle in her left, Unsin flees back toward the living. Her paranji remains behind beside the tomb. In the darkness, the soft earth of an old sunken pit collapses beneath her left foot, swallowing her leg into the void. She yanks herself free, leaving one slipper behind in the dirt. As she staggers in panic, an escaped circus monkey leaps unexpectedly onto her shoulders from the mausoleum eaves. Paralyzed by overwhelming terror, she collapses into darkness.",

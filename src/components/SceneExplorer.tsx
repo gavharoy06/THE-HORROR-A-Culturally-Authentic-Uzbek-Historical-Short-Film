@@ -70,6 +70,12 @@ export const SceneExplorer: React.FC<SceneExplorerProps> = ({ onSelectActForPlay
               src={act.imagePath}
               alt={act.title}
               referrerPolicy="no-referrer"
+              onError={(e) => {
+                const target = e.currentTarget;
+                if (target.src !== act.fallbackImagePath) {
+                  target.src = act.fallbackImagePath;
+                }
+              }}
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 pointer-events-none" />
