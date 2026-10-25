@@ -7,6 +7,9 @@
   h1, h2, h3, h4, .font-serif {
     font-family: 'Cormorant Garamond', Georgia, serif;
   }
+  .font-japanese {
+    font-family: 'Noto Serif JP', 'Cormorant Garamond', serif;
+  }
 }
 
 /* Cinematic film grain & textures */
@@ -56,4 +59,27 @@
 
 .animate-fire-glow {
   animation: flicker-glow 2.5s ease-in-out infinite;
+}
+
+/* Letterbox and aspect ratios for Cinema Mode */
+.letterbox-scope {
+  aspect-ratio: 2.39 / 1;
+  min-height: 280px;
+}
+
+.letterbox-169 {
+  aspect-ratio: 16 / 9;
+  min-height: 280px;
+}
+
+.cinema-viewport-scope {
+  width: 100%;
+  max-width: min(100vw, calc(100vh * 2.39));
+  aspect-ratio: 2.39 / 1;
+}
+
+.cinema-viewport-169 {
+  width: 100%;
+  max-width: min(100vw, calc(100vh * 16 / 9));
+  aspect-ratio: 16 / 9;
 }

@@ -9,19 +9,26 @@ import { CinematicPlayer } from './components/CinematicPlayer';
 import { SceneExplorer } from './components/SceneExplorer';
 import { HistoricalArchive } from './components/HistoricalArchive';
 import { ScreenplayReader } from './components/ScreenplayReader';
+import { FullStoryReader } from './components/FullStoryReader';
 import { Footer } from './components/Footer';
 import { FILM_ACTS } from './data/filmData';
 import { soundEngine } from './utils/soundEngine';
-import { Clapperboard, Compass, Scroll, UserCheck } from 'lucide-react';
+import { BookOpen, Clapperboard, Compass, Scroll, UserCheck } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'film' | 'breakdown' | 'culture' | 'screenplay'>('film');
+  const [activeTab, setActiveTab] = useState<'film' | 'breakdown' | 'culture' | 'screenplay' | 'story'>('film');
   const [currentActIndex, setCurrentActIndex] = useState<number>(0);
   const [isCinemaMode, setIsCinemaMode] = useState<boolean>(false);
   const [isAudioMuted, setIsAudioMuted] = useState<boolean>(false);
 
   const handleToggleCinemaMode = () => {
-    setIsCinemaMode((prev) => !prev);
+    setIsCinemaMode((prev) => {
+      const next = !prev;
+      if (next && activeTab !== 'film') {
+        setActiveTab('film');
+      }
+      return next;
+    });
   };
 
   const handleToggleAudio = () => {
@@ -67,8 +74,8 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1">
-        {/* Cinema Player Section (always accessible or full-screen) */}
-        <section className={activeTab === 'film' ? 'block' : 'hidden'}>
+        {/* Cinema Player Section (always rendered when active or in Cinema Mode) */}
+        <section className={activeTab === 'film' || isCinemaMode ? 'block' : 'hidden'}>
           {/* Hero Editorial Header (Only when not in full cinema view) */}
           {!isCinemaMode && (
             <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-10 pb-4">
@@ -84,6 +91,15 @@ export default function App() {
                 <p className="mt-3 text-stone-400 text-sm sm:text-base leading-relaxed">
                   Inside a traditional Uzbek courtyard house, young Unsin faces the cruel challenge of elderly Olimbek Dodkho: venture alone into the howling midnight cemetery, boil tea beside an ancient brick mausoleum, and earn her freedom.
                 </p>
+                <div className="mt-4 flex items-center gap-4 text-xs">
+                  <button
+                    onClick={() => setActiveTab('story')}
+                    className="inline-flex items-center gap-1.5 text-amber-400 hover:text-amber-300 font-medium transition-colors cursor-pointer"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>Read complete literary story in Uzbek, English or Japanese →</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -112,7 +128,7 @@ export default function App() {
                 </div>
                 <button
                   onClick={() => setActiveTab('breakdown')}
-                  className="text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1"
+                  className="text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1 cursor-pointer"
                 >
                   <span>Explore Shot Ledger</span>
                   <span>→</span>
@@ -156,6 +172,32 @@ export default function App() {
                     </p>
                   </div>
                 ))}
+              </div>
+
+              {/* Read Full Story Promotional Invitation */}
+              <div className="mt-12 bg-gradient-to-r from-amber-950/40 via-stone-900/60 to-stone-900/40 border border-amber-800/40 rounded-2xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="space-y-2 text-center md:text-left">
+                  <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-amber-400 font-serif">
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>Unabridged Classical Literature</span>
+                  </div>
+                  <h3 className="text-2xl font-serif font-bold text-stone-100">
+                    Read the Complete Story by Abdulla Qahhor
+                  </h3>
+                  <p className="text-stone-300 text-sm max-w-xl leading-relaxed">
+                    Experience the original literary prose from the opening autumn storm to the heartbreaking climax in <strong>O‘zbekcha</strong>, <strong>English</strong>, or <strong>日本語</strong>.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setActiveTab('story');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="px-6 py-3 bg-amber-400 hover:bg-amber-300 text-stone-950 font-semibold text-xs rounded-xl shadow-lg transition-colors whitespace-nowrap cursor-pointer shrink-0 flex items-center gap-2"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>Open Full Story Reader</span>
+                </button>
               </div>
 
               {/* Character Dossiers Section */}
@@ -213,15 +255,23 @@ export default function App() {
         </section>
 
         {/* Scene Explorer Tab */}
-        {activeTab === 'breakdown' && (
+        {!isCinemaMode && activeTab === 'breakdown' && (
           <SceneExplorer onSelectActForPlayback={handleSelectActForPlayback} />
         )}
 
         {/* Historical Culture & Artifacts Tab */}
-        {activeTab === 'culture' && <HistoricalArchive />}
+        {!isCinemaMode && activeTab === 'culture' && <HistoricalArchive />}
 
         {/* Screenplay Reader Tab */}
-        {activeTab === 'screenplay' && <ScreenplayReader />}
+        {!isCinemaMode && activeTab === 'screenplay' && <ScreenplayReader />}
+
+        {/* Full Story Unabridged Reader Tab */}
+        {!isCinemaMode && activeTab === 'story' && (
+          <FullStoryReader
+            isAudioMuted={isAudioMuted}
+            onToggleAudio={handleToggleAudio}
+          />
+        )}
       </main>
 
       {/* Editorial Footer (hidden in cinema mode) */}
